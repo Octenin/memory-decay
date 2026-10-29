@@ -545,10 +545,11 @@
     };
 
     let currentDay = 0;
+    let simulationStart = Date.now();
     let memories = [];
 
     function initMemories() {
-      const now = new Date();
+      const now = new Date(simulationStart);
       memories = [
         {
           id: 1,
@@ -609,7 +610,8 @@
     }
 
     function calculateConfidence(memory) {
-      const hoursSinceReinforced = (Date.now() - memory.last_reinforced.getTime()) / (1000 * 60 * 60);
+      const simulatedNow = simulationStart + currentDay * 24 * 60 * 60 * 1000;
+      const hoursSinceReinforced = Math.max(0, (simulatedNow - memory.last_reinforced.getTime()) / (1000 * 60 * 60));
       const adjustedDecayRate = memory.decay_rate / (1 + 0.3 * memory.reinforcement_count);
       const confidence = memory.initial_confidence * Math.exp(-adjustedDecayRate * hoursSinceReinforced);
       return Math.max(0, Math.min(1, confidence));
@@ -619,7 +621,6 @@
       currentDay += days;
 
       memories.forEach(memory => {
-        memory.last_reinforced = new Date(memory.last_reinforced.getTime());
         memory.confidence = calculateConfidence(memory);
         memory.archived = memory.confidence < 0.3;
       });
@@ -633,9 +634,9 @@
       if (!memory) return;
 
       memory.reinforcement_count++;
-      memory.last_reinforced = new Date();
-      memory.confidence = Math.min(0.95, memory.confidence + 0.1);
-      memory.initial_confidence = Math.max(memory.initial_confidence, memory.confidence);
+      memory.last_reinforced = new Date(simulationStart + currentDay * 24 * 60 * 60 * 1000);
+      memory.initial_confidence = Math.min(0.95, Math.max(memory.initial_confidence, memory.confidence + 0.1));
+      memory.confidence = calculateConfidence(memory);
       memory.archived = false;
 
       renderMemories();
@@ -699,6 +700,7 @@
 
     function reset() {
       currentDay = 0;
+      simulationStart = Date.now();
       document.getElementById('current-day').textContent = '0';
       initMemories();
       renderMemories();
